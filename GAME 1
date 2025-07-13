@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relasi Tim - Game Pencocokan Memori</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        .card-flip {
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+        }
+        
+        .card-flip.flipped {
+            transform: rotateY(180deg);
+        }
+        
+        .card-front, .card-back {
+            backface-visibility: hidden;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        
+        .pulse-match {
+            animation: pulseMatch 0.6s ease-in-out;
+        }
+        
+        @keyframes pulseMatch {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-400 via-pink-400 to-orange-400 min-h-screen font-['Inter']">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">🎯 Relasi Tim</h1>
+            <p class="text-white/90 text-lg">Game Pencocokan Memori untuk Rapat yang Lebih Seru!</p>
+        </div>
+
+        <!-- Game Stats -->
+        <div class="flex justify-center gap-6 mb-8">
+            <div class="bg-white/20 backdrop-blur-sm rounded-xl px-6 py-3 text-white">
+                <div class="text-2xl font-bold" id="moves">0</div>
+                <div class="text-sm">Langkah</div>
+            </div>
+            <div class="bg-white/20 backdrop-blur-sm rounded-xl px-6 py-3 text-white">
+                <div class="text-2xl font-bold" id="matches">0/6</div>
+                <div class="text-sm">Pasangan</div>
+            </div>
+            <div class="bg-white/20 backdrop-blur-sm rounded-xl px-6 py-3 text-white">
+                <div class="text-2xl font-bold" id="timer">00:00</div>
+                <div class="text-sm">Waktu</div>
+            </div>
+        </div>
+
+        <!-- Game Board -->
+        <div class="max-w-4xl mx-auto mb-8">
+            <div class="grid grid-cols-4 gap-4" id="gameBoard">
+                <!-- Cards will be generated here -->
+            </div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="text-center mb-8">
+            <button onclick="resetGame()" class="bg-white text-purple-600 px-6 py-3 rounded-xl font-semibold hover:bg-purple-50 transition-colors mr-4">
+                🔄 Main Lagi
+            </button>
+            <button onclick="showQuestions()" class="bg-yellow-400 text-purple-800 px-6 py-3 rounded-xl font-semibold hover:bg-yellow-300 transition-colors">
+                💬 Pertanyaan Pembuka
+            </button>
+        </div>
+
+        <!-- Questions Modal -->
+        <div id="questionsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50">
+            <div class="bg-white rounded-2xl p-8 max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-purple-800">💬 Pertanyaan Pembuka Percakapan</h2>
+                    <button onclick="hideQuestions()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <div class="space-y-4" id="questionsList">
+                    <!-- Questions will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Win Modal -->
+        <div id="winModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50">
+            <div class="bg-white rounded-2xl p-8 max-w-md mx-4 text-center">
+                <div class="text-6xl mb-4">🎉</div>
+                <h2 class="text-2xl font-bold text-purple-800 mb-4">Selamat!</h2>
+                <p class="text-gray-600 mb-6">Anda berhasil mencocokkan semua kartu!</p>
+                <div class="bg-purple-50 rounded-xl p-4 mb-6">
+                    <div class="text-sm text-purple-600 mb-2">Statistik Permainan:</div>
+                    <div class="font-semibold text-purple-800" id="finalStats"></div>
+                </div>
+                <button onclick="resetGame(); hideWinModal();" class="bg-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-purple-700 transition-colors">
+                    🎯 Main Lagi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game data
+        const emojis = ['💼', '☕', '💻', '📊', '🎯', '⚡'];
+        const questions = [
+            "Emoji apa yang paling menggambarkan pagi hari Anda?",
+            "Keterampilan kerja apa yang ingin Anda kembangkan?",
+            "Apa pencapaian terbesar Anda bulan ini?",
+            "Bagaimana cara Anda mengatasi stress di tempat kerja?",
+            "Proyek apa yang paling Anda banggakan?",
+            "Apa yang membuat Anda termotivasi setiap hari?",
+            "Bagaimana Anda lebih suka berkomunikasi dalam tim?",
+            "Apa hobi yang membantu Anda rileks setelah kerja?",
+            "Nilai kerja apa yang paling penting bagi Anda?",
+            "Bagaimana Anda merayakan kesuksesan kecil?"
+        ];
+
+        let gameState = {
+            cards: [],
+            flippedCards: [],
+            matches: 0,
+            moves: 0,
+            startTime: null,
+            timer: null,
+            gameComplete: false
+        };
+
+        // Initialize game
+        function initGame() {
+            const gameBoard = document.getElementById('gameBoard');
+            gameBoard.innerHTML = '';
+            
+            // Create card pairs
+            const cardEmojis = [...emojis, ...emojis];
+            gameState.cards = shuffleArray(cardEmojis).map((emoji, index) => ({
+                id: index,
+                emoji: emoji,
+                flipped: false,
+                matched: false
+            }));
+
+            // Create card elements
+            gameState.cards.forEach(card => {
+                const cardElement = createCardElement(card);
+                gameBoard.appendChild(cardElement);
+            });
+
+            // Reset game state
+            gameState.flippedCards = [];
+            gameState.matches = 0;
+            gameState.moves = 0;
+            gameState.gameComplete = false;
+            gameState.startTime = null;
+            
+            updateStats();
+            
+            if (gameState.timer) {
+                clearInterval(gameState.timer);
+            }
+        }
+
+        function createCardElement(card) {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'relative h-24 cursor-pointer';
+            cardDiv.onclick = () => flipCard(card.id);
+            
+            cardDiv.innerHTML = `
+                <div class="card-flip w-full h-full" id="card-${card.id}">
+                    <div class="card-front bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <div class="text-white text-2xl font-bold">?</div>
+                    </div>
+                    <div class="card-back bg-white rounded-xl flex items-center justify-center shadow-lg border-2 border-purple-200">
+                        <div class="text-4xl">${card.emoji}</div>
+                    </div>
+                </div>
+            `;
+            
+            return cardDiv;
+        }
+
+        function flipCard(cardId) {
+            if (gameState.gameComplete) return;
+            
+            const card = gameState.cards[cardId];
+            if (card.flipped || card.matched || gameState.flippedCards.length >= 2) return;
+
+            // Start timer on first move
+            if (!gameState.startTime) {
+                gameState.startTime = Date.now();
+                startTimer();
+            }
+
+            // Flip card
+            card.flipped = true;
+            gameState.flippedCards.push(card);
+            
+            const cardElement = document.getElementById(`card-${cardId}`);
+            cardElement.classList.add('flipped');
+
+            if (gameState.flippedCards.length === 2) {
+                gameState.moves++;
+                updateStats();
+                
+                setTimeout(() => {
+                    checkMatch();
+                }, 1000);
+            }
+        }
+
+        function checkMatch() {
+            const [card1, card2] = gameState.flippedCards;
+            
+            if (card1.emoji === card2.emoji) {
+                // Match found
+                card1.matched = true;
+                card2.matched = true;
+                gameState.matches++;
+                
+                // Add pulse animation
+                document.getElementById(`card-${card1.id}`).classList.add('pulse-match');
+                document.getElementById(`card-${card2.id}`).classList.add('pulse-match');
+                
+                setTimeout(() => {
+                    document.getElementById(`card-${card1.id}`).classList.remove('pulse-match');
+                    document.getElementById(`card-${card2.id}`).classList.remove('pulse-match');
+                }, 600);
+                
+                if (gameState.matches === 6) {
+                    gameState.gameComplete = true;
+                    clearInterval(gameState.timer);
+                    setTimeout(() => showWinModal(), 1000);
+                }
+            } else {
+                // No match
+                card1.flipped = false;
+                card2.flipped = false;
+                
+                const card1Element = document.getElementById(`card-${card1.id}`);
+                const card2Element = document.getElementById(`card-${card2.id}`);
+                
+                card1Element.classList.add('shake');
+                card2Element.classList.add('shake');
+                
+                setTimeout(() => {
+                    card1Element.classList.remove('flipped', 'shake');
+                    card2Element.classList.remove('flipped', 'shake');
+                }, 500);
+            }
+            
+            gameState.flippedCards = [];
+            updateStats();
+        }
+
+        function startTimer() {
+            gameState.timer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const seconds = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('timer').textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        function updateStats() {
+            document.getElementById('moves').textContent = gameState.moves;
+            document.getElementById('matches').textContent = `${gameState.matches}/6`;
+        }
+
+        function resetGame() {
+            if (gameState.timer) {
+                clearInterval(gameState.timer);
+            }
+            document.getElementById('timer').textContent = '00:00';
+            initGame();
+        }
+
+        function showQuestions() {
+            const modal = document.getElementById('questionsModal');
+            const questionsList = document.getElementById('questionsList');
+            
+            questionsList.innerHTML = questions.map((question, index) => `
+                <div class="bg-purple-50 rounded-xl p-4 border-l-4 border-purple-400">
+                    <div class="font-semibold text-purple-800 mb-2">${index + 1}. ${question}</div>
+                    <div class="text-sm text-purple-600">💡 Gunakan pertanyaan ini untuk memulai diskusi tim!</div>
+                </div>
+            `).join('');
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function hideQuestions() {
+            const modal = document.getElementById('questionsModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function showWinModal() {
+            const modal = document.getElementById('winModal');
+            const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            
+            document.getElementById('finalStats').innerHTML = `
+                <div>Waktu: ${minutes}m ${seconds}s</div>
+                <div>Langkah: ${gameState.moves}</div>
+                <div>Efisiensi: ${Math.round((12 / gameState.moves) * 100)}%</div>
+            `;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function hideWinModal() {
+            const modal = document.getElementById('winModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Initialize game on load
+        initGame();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'95e81c84c5d43f58',t:'MTc1MjQwMjY5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
